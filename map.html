@@ -47,6 +47,8 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 .note{margin:0;font-size:12.5px;color:var(--mute);line-height:1.4}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{display:flex;align-items:center;gap:6px;min-height:42px;padding:0 13px;border-radius:21px;font-size:13.5px;font-weight:600;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff}
+a.chip{color:inherit;text-decoration:none}
+.chip svg{width:13px;height:13px}
 .chip[aria-pressed=true]{color:#fff;background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 70%,#fff),var(--acc));box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
 .tk{width:100%;min-height:44px;padding:0 14px;border:0;border-radius:15px;font:inherit;background:rgba(255,255,255,.7);box-shadow:inset 0 1px 3px rgba(20,40,80,.14)}
 .junction{position:fixed;left:14px;top:14px;z-index:3;width:min(300px,44vw);padding:10px 12px 12px;border-radius:24px}
@@ -87,7 +89,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
  <div><div class="lab">Route Colour</div><div class="dots" id="routes"></div></div>
  <div><div class="lab">Route Thickness</div><input id="rw" type="range" min="3" max="16" value="8" aria-label="Route thickness"></div>
  <div><div class="lab">Label Size</div><input id="ls" type="range" min="70" max="170" value="100" aria-label="Label size"></div>
- <div><div class="lab">Live Traffic Key</div><input class="tk" id="tk" placeholder="Paste your TomTom key" autocomplete="off" aria-label="TomTom traffic key"></div>
+ <div><div class="lab">Live Traffic Key (Optional)</div><input class="tk" id="tk" placeholder="Paste your TomTom key" autocomplete="off" aria-label="TomTom traffic key"></div>
  <p class="note" id="tNote"></p>
 </aside>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
@@ -196,6 +198,7 @@ map.on('style.load',()=>{
  paintLook();paintRoute();paintNames();paintPoi();paint3d();paintHills();paintLabels(true);paintGuide();window.mapReady=true;locate();weather();
 });
 async function weather(){try{const a=POS?POS[1]:27.3645,b=POS?POS[0]:75.4032;const d=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${a}&longitude=${b}&current=temperature_2m`)).json();document.getElementById('dTemp').firstChild.textContent=Math.round(d.current.temperature_2m)+'° '}catch(e){}}
+function trafficUrl(){const z=map.getZoom(),far=z<9,c=far&&POS?{lat:POS[1],lng:POS[0]}:map.getCenter(),zoom=far?(POS?13:8):Math.round(z);return `https://www.google.com/maps/@?api=1&map_action=map&center=${c.lat.toFixed(3)},${c.lng.toFixed(3)}&zoom=${zoom}&layer=traffic`}
 function ui(){
  const o=(id,items,cur,attr)=>{document.getElementById(id).innerHTML=items.map(i=>`<button class="opt" data-${attr}="${i[0]}" aria-pressed="${String(cur)===String(i[0])}">${i[2]?`<span class="sw" style="background:${i[2]}"></span>`:''}${i[1]}${i[3]?`<small>${i[3]}</small>`:''}</button>`).join('')};
  o('looks',Object.entries(LOOKS).map(([k,v])=>[k,v.n,v.sw,v.d]),S.look,'look');
@@ -207,15 +210,15 @@ function ui(){
  o('jn',[['over','Flyover Up'],['under','Stay Below'],['turn','Turn']],S.jn,'jc');
  document.getElementById('jnBox').style.display=S.guide==='card'?'':'none';
  const L=[['sat','Satellite'],['traffic','Traffic'],['roads','Roads'],['fly','Flyovers'],['cities','Next Cities'],['city','City Areas'],['hills','3D Hills'],['b3d','3D Buildings'],['names','Road Names'],['poi','Places']];
- document.getElementById('layers').innerHTML=L.map(x=>`<button class="chip" data-layer="${x[0]}" aria-pressed="${!!S[x[0]]}">${x[1]}</button>`).join('');
+ document.getElementById('layers').innerHTML=L.map(x=>x[0]==='traffic'&&!S.tkey?`<a class="chip" id="gTraffic" href="${trafficUrl()}" target="_blank" rel="noopener" aria-label="Open live traffic in Google Maps">Traffic<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>`:`<button class="chip" data-layer="${x[0]}" aria-pressed="${!!S[x[0]]}">${x[1]}</button>`).join('');
  document.getElementById('satBox').style.display=S.sat?'':'none';document.getElementById('so').value=S.satO;document.getElementById('tk').value=S.tkey;
- document.getElementById('tNote').textContent=S.tkey?'Traffic uses your key. Spoken directions stay with Google Maps or Mappls.':'Traffic stays off until you add a free TomTom key. Spoken directions stay with Google Maps or Mappls.';
+ document.getElementById('tNote').textContent=S.tkey?'Traffic uses your key. Spoken directions stay with Google Maps or Mappls.':'Traffic opens Google Maps at this spot with live traffic. No login or key needed. To show traffic on this map itself, add a TomTom key. Spoken directions stay with Google Maps or Mappls.';
  document.getElementById('routes').innerHTML=['#35d0ff','#0a6cff','#e5202e','#ffcf5c','#12a87a','#7a3cff','#ee7600','#16181d'].map(c=>`<button class="c" style="background:${c}" data-rc="${c}" aria-label="Route colour ${c}" aria-pressed="${route()===c}"></button>`).join('');
  document.getElementById('rw').value=S.rw;document.getElementById('ls').value=S.ls;
 }
 ui();paintDock();
 const P=document.getElementById('panel');
-document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+document.addEventListener('click',e=>{const g=e.target.closest('#gTraffic');if(g){g.href=trafficUrl();return}const b=e.target.closest('button');if(!b)return;const d=b.dataset;
  if(b.id==='openP')return P.classList.remove('hide');
  if(b.id==='closeP')return P.classList.add('hide');
  if(d.look){S.look=d.look;S.rc=null;paintLook();paintRoute();paintGuide()}
