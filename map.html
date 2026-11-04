@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Drive"><meta name="robots" content="noindex"><link rel="apple-touch-icon" href="icon.png">
+<title>Map Studio</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<style>
+/* Layout: the map owns the whole screen. One small glass dock at the bottom; controls slide in only when asked for. */
+:root{--ink:#16181d;--mute:#5d6470;--acc:#0a6cff;--acc2:#3aa6ff;--font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif}
+html,body{height:100%;margin:0}
+body{font:400 15px/1.35 var(--font);color:var(--ink);background:#dfe6ee;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#map{position:fixed;inset:0}
+.g{background:linear-gradient(140deg,rgba(255,255,255,.84),rgba(255,255,255,.54));-webkit-backdrop-filter:blur(22px) saturate(200%);backdrop-filter:blur(22px) saturate(200%);box-shadow:inset 0 1.5px 1px #fff,inset 0 0 14px rgba(255,255,255,.45),0 16px 34px -14px rgba(10,20,60,.6)}
+.dock{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:13px;padding:7px 8px 7px 8px;border-radius:30px;max-width:calc(100vw - 24px);white-space:nowrap}
+.dock.left{left:14px;transform:none}.dock.right{left:auto;right:14px;transform:none}
+.turn{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;color:#fff;background:radial-gradient(circle at 34% 24%,color-mix(in srgb,var(--acc2) 62%,#fff),var(--acc) 60%);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.7),0 8px 14px -6px var(--acc)}
+.turn svg{width:24px;height:24px}
+.puck{width:40px;height:40px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))}
+a.round{color:inherit}
+.dtx{min-width:0;overflow:hidden}.dtx b{display:block;font-size:16px;font-weight:600;letter-spacing:-.014em;line-height:1.15;overflow:hidden;text-overflow:ellipsis}.dtx span{font-size:12.5px;color:var(--mute)}
+.sep{flex:none;width:1px;height:28px;background:rgba(30,50,90,.14)}
+.ext{display:flex;align-items:center;gap:13px;font-size:14px;font-weight:600}
+.ext .mini{display:flex;align-items:center;gap:6px}.ext .mini small{font-size:12px;font-weight:500;color:var(--mute)}
+.dock.small .ext,.dock.small .sep.s1{display:none}
+.round{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.7);box-shadow:inset 0 1px 0 #fff}
+.round svg{width:20px;height:20px}
+.panel{position:fixed;right:12px;top:12px;bottom:12px;z-index:4;width:min(344px,50vw);overflow-y:auto;padding:14px;border-radius:26px;display:flex;flex-direction:column;gap:13px}
+.panel.hide{display:none}
+.phead{display:flex;align-items:center;justify-content:space-between}
+.panel h1{margin:0;font-size:21px;font-weight:700;letter-spacing:-.022em}
+.lab{font-weight:600;font-size:13.5px;color:var(--mute);margin-bottom:6px}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.opts.two{grid-template-columns:1fr 1fr}
+.opts.looks{grid-template-columns:repeat(2,1fr)}
+.opt{min-height:42px;padding:6px;border-radius:15px;text-align:center;font-size:13px;font-weight:600;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff}
+.opt[aria-pressed=true]{color:var(--acc);background:#fff;box-shadow:inset 0 0 0 2px var(--acc)}
+.sw{display:block;height:42px;border-radius:10px;margin-bottom:5px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.opt small{display:block;font-size:11px;font-weight:500;color:var(--mute)}
+.dots{display:flex;gap:8px;flex-wrap:wrap}
+.c{width:36px;height:36px;border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 7px -3px rgba(0,0,0,.5)}
+.c[aria-pressed=true]{outline:3px solid #fff;box-shadow:0 0 0 5px var(--acc)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.note{margin:0;font-size:12.5px;color:var(--mute);line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{display:flex;align-items:center;gap:6px;min-height:42px;padding:0 13px;border-radius:21px;font-size:13.5px;font-weight:600;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff}
+.chip[aria-pressed=true]{color:#fff;background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 70%,#fff),var(--acc));box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.tk{width:100%;min-height:44px;padding:0 14px;border:0;border-radius:15px;font:inherit;background:rgba(255,255,255,.7);box-shadow:inset 0 1px 3px rgba(20,40,80,.14)}
+.junction{position:fixed;left:14px;top:14px;z-index:3;width:min(300px,44vw);padding:10px 12px 12px;border-radius:24px}
+.junction svg{display:block;width:100%;height:auto}
+.jtx{margin-top:6px}.jtx b{display:block;font-size:17px;font-weight:700;letter-spacing:-.016em;line-height:1.15}.jtx span{font-size:12.5px;color:var(--mute)}
+.cm{display:flex;flex-direction:column;align-items:center;padding:4px 10px;border-radius:13px;background:rgba(255,255,255,.92);color:#16181d;box-shadow:0 5px 12px -4px rgba(10,20,60,.6);font-size:12px;line-height:1.1;white-space:nowrap}
+.cm::after{content:"";position:absolute;bottom:-5px;width:10px;height:10px;background:inherit;transform:rotate(45deg);border-radius:2px}
+.cm b{font-size:14px;font-weight:700;letter-spacing:-.01em}.cm span{color:#5d6470;font-size:11px}
+.cm.next{background:var(--acc);color:#fff}.cm.next span{color:rgba(255,255,255,.88)}
+.maplibregl-ctrl-attrib{font-size:10px}
+.maplibregl-ctrl-bottom-right{bottom:0}
+@media (max-width:640px){.panel{top:auto;left:10px;right:10px;width:auto;height:62vh;bottom:10px}.ext{display:none}.sep.s1{display:none}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="junction g" id="junction"></div>
+<div class="dock g" id="dock">
+ <span class="turn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21v-8a4 4 0 0 1 4-4h9M14 4l5 5-5 5"/></svg></span>
+ <div class="dtx"><b id="dTitle">Keep Left for the Flyover</b><span id="dSub">Sample direction · 8h 13m to Khatu</span></div>
+ <span class="sep s1"></span>
+ <div class="ext"><span class="mini" id="dTemp">--<small>Weather</small></span></div>
+ <span class="sep"></span>
+ <a class="round" href="index.html" aria-label="Back to dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></a>
+ <button class="round" id="openP" aria-label="Customize the map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.3"/><circle cx="8" cy="17" r="2.3"/></svg></button>
+</div>
+<aside class="panel g hide" id="panel">
+ <div class="phead"><h1>Map Studio</h1><button class="round" id="closeP" aria-label="Close controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></div>
+ <div><div class="lab">Layers: Choose Any Together</div><div class="chips" id="layers"></div></div>
+ <div id="satBox"><div class="lab">Satellite Strength</div><input id="so" type="range" min="20" max="100" value="100" aria-label="Satellite strength"></div>
+ <div><div class="lab">Map Style</div><div class="opts looks" id="looks"></div></div>
+ <div><div class="lab">Turn Guidance Preview (Sample)</div><div class="opts two" id="guide"></div></div>
+ <div id="jnBox"><div class="lab">Preview a Junction</div><div class="opts" id="jn"></div></div>
+ <div><div class="lab">View</div><div class="opts" id="views"></div></div>
+ <div><div class="lab">Bottom Dock</div><div class="opts" id="docks"></div></div>
+ <div><div class="lab">Dock Position</div><div class="opts" id="dpos"></div></div>
+ <div><div class="lab">Land Shading</div><div class="opts" id="shade"></div></div>
+ <div><div class="lab">Route Colour</div><div class="dots" id="routes"></div></div>
+ <div><div class="lab">Route Thickness</div><input id="rw" type="range" min="3" max="16" value="8" aria-label="Route thickness"></div>
+ <div><div class="lab">Label Size</div><input id="ls" type="range" min="70" max="170" value="100" aria-label="Label size"></div>
+ <div><div class="lab">Live Traffic Key</div><input class="tk" id="tk" placeholder="Paste your TomTom key" autocomplete="off" aria-label="TomTom traffic key"></div>
+ <p class="note" id="tNote"></p>
+</aside>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script>
+let ROUTE={type:'LineString',coordinates:[[75.5579722,27.3766238],[75.4032024,27.3644823]]};
+const LOOKS={
+ navigator:{n:'Night Navigator',d:'Glowing roads',land:'#0f1b33',water:'#0a2f55',park:'#14332f',road:'#2c3f66',major:'#5a7bc0',build:'#1b2a48',label:'#d7e4ff',halo:'#0f1b33',cityc:'#ffd166',cityfill:'#22345c',hs:'#04091a',hh:'#3a5688',ha:'#16264a',sw:'linear-gradient(135deg,#0f1b33,#5a7bc0)',rc:'#35d0ff'},
+ relief:{n:'Terrain Relief',d:'Deep land shading',land:'#e9e4d4',water:'#8ec6e6',park:'#bcd6a0',road:'#ffffff',major:'#ffd98a',build:'#d9d2bf',label:'#3f3a2c',halo:'#f6f2e6',cityc:'#a33a12',cityfill:'#dcc9a8',hs:'#5d5138',hh:'#fffbe8',ha:'#8a7b58',sw:'linear-gradient(135deg,#bcd6a0,#e9e4d4 50%,#8a7b58)',rc:'#e5202e'},
+ glass:{n:'Glass',d:'Soft and clean',land:'#eef3f8',water:'#b4d9f2',park:'#d4eedc',road:'#ffffff',major:'#ffffff',build:'#dde5ee',label:'#3c4656',halo:'#ffffff',cityc:'#0a4fc2',cityfill:'#dfe9f7',hs:'#8fa3bd',hh:'#ffffff',ha:'#a9bbd1',sw:'linear-gradient(135deg,#eef3f8,#b4d9f2)',rc:'#0a6cff'},
+ pearl:{n:'Pearl',d:'Least colour',land:'#f7f6f3',water:'#d6dfe5',park:'#e8ecde',road:'#ffffff',major:'#ffffff',build:'#eae7e1',label:'#55524a',halo:'#ffffff',cityc:'#16181d',cityfill:'#eeebe4',hs:'#a29d90',hh:'#ffffff',ha:'#c2bdb0',sw:'linear-gradient(135deg,#f7f6f3,#d6dfe5)',rc:'#16181d'},
+ gold:{n:'Midnight Gold',d:'Black and gold',land:'#12100c',water:'#1a2430',park:'#1d2418',road:'#3a3222',major:'#c8a24d',build:'#231e15',label:'#f2e3bd',halo:'#12100c',cityc:'#ffd98a',cityfill:'#2a2418',hs:'#000000',hh:'#5a4a26',ha:'#2a2312',sw:'linear-gradient(135deg,#12100c,#c8a24d)',rc:'#ffcf5c'},
+ desert:{n:'Desert',d:'Warm highway look',land:'#f6e9d2',water:'#a2d6d6',park:'#e2daac',road:'#fff8ea',major:'#ffc971',build:'#ebd7b3',label:'#6a4d22',halo:'#fff8ea',cityc:'#a3440e',cityfill:'#eed8b2',hs:'#9a7d4d',hh:'#fff6dc',ha:'#c2a56f',sw:'linear-gradient(135deg,#f6e9d2,#ffc971)',rc:'#e5476f'},
+ mint:{n:'Mint',d:'Fresh and light',land:'#e9f6f0',water:'#a4e0de',park:'#bce8cb',road:'#ffffff',major:'#d4f7e7',build:'#d2ebe0',label:'#1f5a4b',halo:'#ffffff',cityc:'#0b6b56',cityfill:'#d6efe5',hs:'#6fa794',hh:'#ffffff',ha:'#97c6b6',sw:'linear-gradient(135deg,#e9f6f0,#bce8cb)',rc:'#0d9e7a'},
+ rose:{n:'Rose',d:'Soft and warm',land:'#fbeff0',water:'#c4ddef',park:'#f2dfdb',road:'#ffffff',major:'#ffdce2',build:'#f2dfe0',label:'#74404d',halo:'#ffffff',cityc:'#a81f3c',cityfill:'#f7e0e3',hs:'#b78f97',hh:'#ffffff',ha:'#d6b5bc',sw:'linear-gradient(135deg,#fbeff0,#ffd6dc)',rc:'#d81f5e'}
+};
+const defaults={look:'navigator',view:'far',rc:null,rw:8,b3d:true,names:true,poi:false,ls:100,dock:'medium',dpos:'center',shade:'deep',hills:false,city:true,sat:false,satO:100,roads:true,traffic:false,tkey:'',fly:true,cities:true,guide:'dock',jn:'over'};
+const S=Object.assign({},defaults);
+try{Object.assign(S,JSON.parse(localStorage.getItem('map-live-1')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('map-live-1',JSON.stringify(S))}catch(e){}};
+const VIEWS={drive:{n:'Driving 3D',pitch:62,zoom:15.2},top:{n:'Top Down',pitch:0,zoom:12.6},far:{n:'Whole Route',pitch:0,zoom:6.4}};
+const SHADES={off:0,soft:.3,deep:.75};
+let CENTER=[75.4032024,27.3644823],POS=null,HEAD=0,PUCK=null;const STOPS='76.1942048,27.7054216;75.7158062,27.1655759;75.5579722,27.3766238;75.4032024,27.3644823';
+const srcL=l=>l['source-layer'];
+const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[76,28.5],zoom:VIEWS[S.view].zoom,pitch:VIEWS[S.view].pitch,bearing:S.view==='drive'?-30:0,maxPitch:75,attributionControl:{compact:true},canvasContextAttributes:{preserveDrawingBuffer:true}});
+let base={},firstRoad=null,firstSym=null;
+const route=()=>S.rc||LOOKS[S.look].rc;
+function each(fn){for(const l of map.getStyle().layers){if(!l.id.startsWith('me-'))try{fn(l)}catch(e){}}}
+function paintLook(){
+ const t=LOOKS[S.look];
+ each(l=>{const k=srcL(l),isLine=l.type==='line',isFill=l.type==='fill';
+  if(l.type==='background')map.setPaintProperty(l.id,'background-color',t.land);
+  else if((k==='water'||k==='waterway')&&isFill)map.setPaintProperty(l.id,'fill-color',t.water);
+  else if((k==='water'||k==='waterway')&&isLine)map.setPaintProperty(l.id,'line-color',t.water);
+  else if(l.id==='landuse_residential'){map.setPaintProperty(l.id,'fill-color',S.city?t.cityfill:t.land);map.setPaintProperty(l.id,'fill-opacity',S.city?.9:0)}
+  else if((k==='park'||k==='landcover'||k==='landuse')&&isFill){map.setPaintProperty(l.id,'fill-color',t.park);map.setPaintProperty(l.id,'fill-opacity',.75)}
+  else if(k==='building'&&isFill)map.setPaintProperty(l.id,'fill-color',t.build);
+  else if(l.type==='fill-extrusion')map.setPaintProperty(l.id,'fill-extrusion-color',t.build);
+  else if(k==='transportation'&&isLine){map.setPaintProperty(l.id,'line-color',/casing/.test(l.id)?t.build:(/motorway|trunk|primary/.test(l.id)?t.major:t.road))}
+  else if(l.type==='symbol'&&map.getLayoutProperty(l.id,'text-field')){map.setPaintProperty(l.id,'text-color',t.label);map.setPaintProperty(l.id,'text-halo-color',t.halo);map.setPaintProperty(l.id,'text-halo-width',1.6)}
+ });
+ paintLayers();paintShade();paintCity();
+ map.setPaintProperty('me-route','line-color',route());map.setPaintProperty('me-glow','line-color',route());
+ document.documentElement.style.setProperty('--acc',route());document.documentElement.style.setProperty('--acc2',route());
+}
+function paintShade(){const t=LOOKS[S.look],on=S.shade!=='off';map.setLayoutProperty('me-hill','visibility',on?'visible':'none');if(on){map.setPaintProperty('me-hill','hillshade-exaggeration',SHADES[S.shade]);map.setPaintProperty('me-hill','hillshade-shadow-color',t.hs);map.setPaintProperty('me-hill','hillshade-highlight-color',t.hh);map.setPaintProperty('me-hill','hillshade-accent-color',t.ha)}}
+function paintCity(){const t=LOOKS[S.look],f=S.ls/100;
+ for(const id of ['label_city','label_city_capital','label_town']){if(!map.getLayer(id))continue;
+  map.setPaintProperty(id,'text-color',S.city?t.cityc:t.label);
+  const b=id==='label_town'?13:18,z=S.city?(id==='label_town'?1.35:1.5):1;
+  map.setLayoutProperty(id,'text-size',['interpolate',['linear'],['zoom'],5,b*.72*z*f,12,b*1.25*z*f])}
+ const r=map.getLayer('landuse_residential');if(r){map.setPaintProperty('landuse_residential','fill-color',S.city?t.cityfill:t.land);map.setPaintProperty('landuse_residential','fill-opacity',S.city?.9:0)}}
+function paintLayers(){
+ map.setLayoutProperty('me-sat','visibility',S.sat?'visible':'none');map.setPaintProperty('me-sat','raster-opacity',S.satO/100);
+ map.setLayoutProperty('natural_earth','visibility',S.sat?'none':'visible');
+ each(l=>{if(srcL(l)==='transportation'&&l.type==='line')map.setLayoutProperty(l.id,'visibility',S.roads?'visible':'none');if(srcL(l)==='building')map.setPaintProperty(l.id,l.type==='fill'?'fill-opacity':'fill-extrusion-opacity',S.sat?.35:1)});
+ map.setLayoutProperty('me-flycase','visibility',S.fly&&S.roads?'visible':'none');map.setLayoutProperty('me-fly','visibility',S.fly&&S.roads?'visible':'none');
+ map.setPaintProperty('me-fly','line-color','#ffd166');
+ const hasKey=!!S.tkey;map.setLayoutProperty('me-trafficlive','visibility',S.traffic&&hasKey?'visible':'none');
+ if(hasKey&&map.getSource('me-tt').tiles[0].indexOf(S.tkey)<0)map.getSource('me-tt').setTiles(['https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key='+encodeURIComponent(S.tkey)]);
+ cityMarks();
+}
+function paintNames(){each(l=>{if(l.type==='symbol'&&srcL(l)==='transportation_name')map.setLayoutProperty(l.id,'visibility',S.names?'visible':'none')})}
+function paintPoi(){each(l=>{if(srcL(l)==='poi'||srcL(l)==='aerodrome_label')map.setLayoutProperty(l.id,'visibility',S.poi?'visible':'none')})}
+function paint3d(){each(l=>{if(l.type==='fill-extrusion')map.setLayoutProperty(l.id,'visibility',S.b3d?'visible':'none')})}
+function paintHills(){map.setTerrain(S.hills?{source:'me-dem3d',exaggeration:1.5}:null)}
+function paintLabels(first){if(first&&S.ls===100){return}const f=S.ls/100;each(l=>{if(l.type==='symbol'&&base[l.id]!==undefined&&!/label_(city|town)/.test(l.id)){const o=base[l.id];map.setLayoutProperty(l.id,'text-size',typeof o==='number'?o*f:['*',o,f])}});paintCity()}
+function paintRoute(){map.setPaintProperty('me-route','line-width',S.rw);map.setPaintProperty('me-glow','line-width',S.rw*2.8);map.setPaintProperty('me-route','line-color',route());map.setPaintProperty('me-glow','line-color',route());document.documentElement.style.setProperty('--acc',route());document.documentElement.style.setProperty('--acc2',route())}
+/* Next cities: only those that sit on this route, in driving order */
+const CANDS=[['Ambala',30.378,76.776],['Shahabad',30.167,76.870],['Kurukshetra',29.969,76.878],['Pehowa',29.979,76.584],['Kaithal',29.802,76.399],['Narwana',29.599,76.118],['Jind',29.316,76.314],['Rohtak',28.895,76.606],['Jhajjar',28.606,76.657],['Charkhi Dadri',28.593,76.271],['Mahendragarh',28.283,76.150],['Rewari',28.197,76.619],['Narnaul',28.044,76.108],['Nangal Chaudhary',27.892,76.110],['Kotputli',27.705,76.194],['Shahpura',27.389,75.959],['Chomu',27.166,75.716],['Reengus',27.377,75.558],['Khatu Shyam Ji',27.364,75.403]];
+function hav(a,b,c,d){const R=6371,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180,q=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
+let CITIES=[],CUM=[0];function calcCities(){const pts=ROUTE.coordinates,cum=[0];for(let i=1;i<pts.length;i++)cum[i]=cum[i-1]+hav(pts[i-1][1],pts[i-1][0],pts[i][1],pts[i][0]);const out=[];for(const c of CANDS){let best=1e9,bi=0;for(let i=0;i<pts.length;i+=4){const d=hav(c[1],c[2],pts[i][1],pts[i][0]);if(d<best){best=d;bi=i}}if(best<9)out.push({n:c[0],lat:c[1],lon:c[2],km:Math.round(cum[bi])})}CUM=cum;CITIES=out.sort((a,b)=>a.km-b.km)}
+calcCities();
+function progress(){if(!POS||ROUTE.coordinates.length<3)return 0;let b=1e9,bi=0;const p=ROUTE.coordinates;for(let i=0;i<p.length;i+=3){const d=hav(POS[1],POS[0],p[i][1],p[i][0]);if(d<b){b=d;bi=i}}return CUM[bi]||0}
+let marks=[];
+function cityMarks(){marks.forEach(m=>m.remove());marks=[];if(!S.cities)return;const z=map.getZoom(),gap=z<7?110:z<9?45:0;let last=-1e9;CITIES.forEach((c,i)=>{const end=i===CITIES.length-1;if(!(i===0||end||c.km-last>=gap)||(end&&false))return;if(!end&&CITIES[CITIES.length-1].km-c.km<gap&&i!==0)return;last=c.km;const e=document.createElement('div');e.className='cm'+(i===0?' next':'');e.innerHTML=`<b>${c.n}</b><span>${c.km} km</span>`;marks.push(new maplibregl.Marker({element:e,anchor:'bottom'}).setLngLat([c.lon,c.lat]).addTo(map))})}
+const JN={over:{t:'Take the Flyover',s:'Keep left and go up in 500 m'},under:{t:'Stay Below the Flyover',s:'Keep right, service road in 500 m'},turn:{t:'Turn Right at the Junction',s:'NH 152D in 800 m'}};
+function junction(){const j=JN[S.jn],hi=route(),lo='#9aa7bb',up=S.jn==='over',dn=S.jn==='under';
+ if(S.jn==='turn')return `<svg viewBox="0 0 220 120" aria-hidden="true"><path d="M0 100H220" stroke="${lo}" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M0 100H110c16 0 22-8 22-22V6" stroke="${hi}" stroke-width="14" fill="none" stroke-linecap="round"/></svg><div class="jtx"><b>${j.t}</b><span>${j.s} · Sample</span></div>`;
+ return `<svg viewBox="0 0 220 120" aria-hidden="true"><path d="M0 104C70 104 120 96 220 86" stroke="${dn?hi:lo}" stroke-width="${dn?14:9}" fill="none" stroke-linecap="round"/><path d="M0 92C60 90 90 60 130 40S200 18 220 16" stroke="#fff" stroke-width="${up?20:14}" fill="none" stroke-linecap="round"/><path d="M0 92C60 90 90 60 130 40S200 18 220 16" stroke="${up?hi:lo}" stroke-width="${up?14:9}" fill="none" stroke-linecap="round"/><path d="M116 62v30M150 44v42" stroke="${lo}" stroke-width="5" stroke-linecap="round"/>${S.jn==='turn'?`<path d="M0 100H110c16 0 22-8 22-22V6" stroke="${hi}" stroke-width="14" fill="none" stroke-linecap="round"/>`:''}</svg><div class="jtx"><b>${j.t}</b><span>${j.s} · Sample</span></div>`}
+function paintGuide(){const g=document.getElementById('junction');g.style.display=S.guide==='card'?'':'none';g.innerHTML=junction();const done=progress(),n=CITIES.find(c=>c.km>done+1)||CITIES[CITIES.length-1],total=Math.round((CUM[CUM.length-1]||0)-done);if(!n)return;document.getElementById('dTitle').textContent='Next: '+n.n;document.getElementById('dSub').textContent=Math.max(0,Math.round(n.km-done))+' km · '+total+' km to Khatu'}
+function paintDock(){const d=document.getElementById('dock');d.hidden=false;d.style.display=S.dock==='hide'?'none':'';d.className='dock g '+S.dock+' '+(S.dpos==='center'?'':S.dpos)}
+function routeBox(){const b=new maplibregl.LngLatBounds();ROUTE.coordinates.forEach(c=>b.extend(c));return b}
+function go(){const v=VIEWS[S.view];if(S.view==='far'){map.fitBounds(routeBox(),{padding:{top:60,bottom:110,left:50,right:50},pitch:0,bearing:0,duration:900});return}map.easeTo({center:POS||CENTER,zoom:v.zoom,pitch:v.pitch,bearing:S.view==='drive'?HEAD:0,duration:900})}
+async function loadRoute(){const start=POS?POS.join(','):'76.1942048,27.7054216';try{const r=await (await fetch(`https://router.project-osrm.org/route/v1/driving/${POS?start+';':''}${STOPS}?overview=full&geometries=geojson&steps=false`)).json();if(r.code==='Ok'){ROUTE=r.routes[0].geometry;calcCities();if(map.getSource('me'))map.getSource('me').setData({type:'Feature',geometry:ROUTE});cityMarks();paintGuide();go()}else routeFail()}catch(e){routeFail()}}
+function routeFail(){document.getElementById('dTitle').textContent='Route unavailable';document.getElementById('dSub').textContent='Check your internet and try again'}
+function puck(){if(!POS)return;if(!PUCK){const e=document.createElement('div');e.className='puck';e.innerHTML='<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#fff"/><path d="M20 7 30 31 20 26 10 31z" fill="var(--acc)"/></svg>';PUCK=new maplibregl.Marker({element:e,rotationAlignment:'map'}).setLngLat(POS).addTo(map)}PUCK.setLngLat(POS);PUCK.setRotation(HEAD)}
+function locate(){if(!navigator.geolocation){loadRoute();return}let first=true;navigator.geolocation.watchPosition(p=>{POS=[p.coords.longitude,p.coords.latitude];if(typeof p.coords.heading==='number'&&!isNaN(p.coords.heading))HEAD=p.coords.heading;CENTER=POS;puck();paintGuide();if(first){first=false;loadRoute()}else if(S.view==='drive')map.easeTo({center:POS,bearing:HEAD,duration:800})},()=>{if(first){first=false;loadRoute()}},{enableHighAccuracy:true,maximumAge:3000,timeout:12000})}
+map.on('zoomend',()=>{if(window.mapReady)cityMarks()});
+map.on('style.load',()=>{
+ for(const l of map.getStyle().layers){if(l.type==='symbol'){const v=map.getLayoutProperty(l.id,'text-size');if(v!==undefined)base[l.id]=v}if(!firstRoad&&srcL(l)==='transportation')firstRoad=l.id;if(firstRoad&&!firstSym&&l.type==='symbol'&&srcL(l)==='transportation_name')firstSym=l.id}
+ const dem={type:'raster-dem',tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],encoding:'terrarium',tileSize:256,maxzoom:13,attribution:'Terrain: Mapzen, AWS'};
+ map.addSource('me-dem',dem);map.addSource('me-dem3d',dem);
+ map.addSource('me-satsrc',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:18,attribution:'Imagery: Esri'});
+ map.addLayer({id:'me-sat',type:'raster',source:'me-satsrc',layout:{visibility:'none'}},firstRoad);
+ map.addLayer({id:'me-hill',type:'hillshade',source:'me-dem',paint:{'hillshade-exaggeration':.7}},firstRoad);
+ map.addLayer({id:'me-flycase',type:'line',source:'openmaptiles','source-layer':'transportation',filter:['==',['get','brunnel'],'bridge'],minzoom:10,layout:{'line-cap':'round'},paint:{'line-color':'#ffffff','line-width':['interpolate',['linear'],['zoom'],10,3,16,15]}},firstSym);
+ map.addLayer({id:'me-fly',type:'line',source:'openmaptiles','source-layer':'transportation',filter:['==',['get','brunnel'],'bridge'],minzoom:10,layout:{'line-cap':'round'},paint:{'line-color':'#ffd166','line-width':['interpolate',['linear'],['zoom'],10,1.6,16,9]}},firstSym);
+ map.addSource('me-tt',{type:'raster',tiles:['https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key='+encodeURIComponent(S.tkey||'none')],tileSize:256,attribution:'Traffic: TomTom'});
+ map.addLayer({id:'me-trafficlive',type:'raster',source:'me-tt',layout:{visibility:'none'}},firstSym);
+ const pts=ROUTE.coordinates,seg=[],tone=['#31c15a','#31c15a','#f5a524','#31c15a','#e5202e','#31c15a','#31c15a','#f5a524'];const step=Math.ceil(pts.length/tone.length);for(let i=0;i<tone.length;i++)seg.push({type:'Feature',properties:{c:tone[i]},geometry:{type:'LineString',coordinates:pts.slice(i*step,(i+1)*step+1)}});
+ map.addSource('me-ts',{type:'geojson',data:{type:'FeatureCollection',features:seg}});
+ map.addSource('me',{type:'geojson',data:{type:'Feature',geometry:ROUTE}});
+ map.addLayer({id:'me-glow',type:'line',source:'me',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':route(),'line-opacity':.28,'line-width':S.rw*2.8,'line-blur':3}},firstSym);
+ map.addLayer({id:'me-route',type:'line',source:'me',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':route(),'line-width':S.rw}},firstSym);
+ map.addLayer({id:'me-trafficsample',type:'line',source:'me-ts',layout:{'line-cap':'round','line-join':'round',visibility:'none'},paint:{'line-color':['get','c'],'line-width':['*',S.rw,.55]}},firstSym);
+ paintLook();paintRoute();paintNames();paintPoi();paint3d();paintHills();paintLabels(true);paintGuide();window.mapReady=true;locate();weather();
+});
+async function weather(){try{const a=POS?POS[1]:27.3645,b=POS?POS[0]:75.4032;const d=await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${a}&longitude=${b}&current=temperature_2m`)).json();document.getElementById('dTemp').firstChild.textContent=Math.round(d.current.temperature_2m)+'° '}catch(e){}}
+function ui(){
+ const o=(id,items,cur,attr)=>{document.getElementById(id).innerHTML=items.map(i=>`<button class="opt" data-${attr}="${i[0]}" aria-pressed="${String(cur)===String(i[0])}">${i[2]?`<span class="sw" style="background:${i[2]}"></span>`:''}${i[1]}${i[3]?`<small>${i[3]}</small>`:''}</button>`).join('')};
+ o('looks',Object.entries(LOOKS).map(([k,v])=>[k,v.n,v.sw,v.d]),S.look,'look');
+ o('views',Object.entries(VIEWS).map(([k,v])=>[k,v.n]),S.view,'view');
+ o('docks',[['small','Small'],['medium','Medium'],['hide','Hide']],S.dock,'dk');
+ o('dpos',[['left','Left'],['center','Centre'],['right','Right']],S.dpos,'dp');
+ o('shade',[['off','Off'],['soft','Soft'],['deep','Deep']],S.shade,'sh');
+ o('guide',[['card','Junction Card'],['dock','Dock Only']],S.guide,'gd');
+ o('jn',[['over','Flyover Up'],['under','Stay Below'],['turn','Turn']],S.jn,'jc');
+ document.getElementById('jnBox').style.display=S.guide==='card'?'':'none';
+ const L=[['sat','Satellite'],['traffic','Traffic'],['roads','Roads'],['fly','Flyovers'],['cities','Next Cities'],['city','City Areas'],['hills','3D Hills'],['b3d','3D Buildings'],['names','Road Names'],['poi','Places']];
+ document.getElementById('layers').innerHTML=L.map(x=>`<button class="chip" data-layer="${x[0]}" aria-pressed="${!!S[x[0]]}">${x[1]}</button>`).join('');
+ document.getElementById('satBox').style.display=S.sat?'':'none';document.getElementById('so').value=S.satO;document.getElementById('tk').value=S.tkey;
+ document.getElementById('tNote').textContent=S.tkey?'Traffic uses your key. Spoken directions stay with Google Maps or Mappls.':'Traffic stays off until you add a free TomTom key. Spoken directions stay with Google Maps or Mappls.';
+ document.getElementById('routes').innerHTML=['#35d0ff','#0a6cff','#e5202e','#ffcf5c','#12a87a','#7a3cff','#ee7600','#16181d'].map(c=>`<button class="c" style="background:${c}" data-rc="${c}" aria-label="Route colour ${c}" aria-pressed="${route()===c}"></button>`).join('');
+ document.getElementById('rw').value=S.rw;document.getElementById('ls').value=S.ls;
+}
+ui();paintDock();
+const P=document.getElementById('panel');
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+ if(b.id==='openP')return P.classList.remove('hide');
+ if(b.id==='closeP')return P.classList.add('hide');
+ if(d.look){S.look=d.look;S.rc=null;paintLook();paintRoute();paintGuide()}
+ else if(d.view){S.view=d.view;go()}
+ else if(d.dk){S.dock=d.dk;paintDock()}
+ else if(d.dp){S.dpos=d.dp;paintDock()}
+ else if(d.sh){S.shade=d.sh;paintShade()}
+ else if(d.gd){S.guide=d.gd;paintGuide()}
+ else if(d.jc){S.jn=d.jc;paintGuide()}
+ else if(d.layer){const k=d.layer;S[k]=!S[k];if(k==='hills')paintHills();else if(k==='city')paintCity();else if(k==='b3d')paint3d();else if(k==='names')paintNames();else if(k==='poi')paintPoi();else paintLayers()}
+ else if(d.rc){S.rc=d.rc;paintRoute();paintLayers();paintGuide()}
+ else return;
+ save();ui();
+});
+document.getElementById('rw').addEventListener('input',e=>{S.rw=+e.target.value;paintRoute();save()});
+document.getElementById('so').addEventListener('input',e=>{S.satO=+e.target.value;paintLayers();save()});
+document.getElementById('tk').addEventListener('change',e=>{S.tkey=e.target.value.trim();paintLayers();save();ui()});
+document.getElementById('ls').addEventListener('input',e=>{S.ls=+e.target.value;paintLabels();save()});
+</script>
+</body>
+</html>
