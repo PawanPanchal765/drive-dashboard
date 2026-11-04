@@ -722,9 +722,11 @@ const COND=c=>c===0?'Clear Sky':c<=2?'Partly Cloudy':c===3?'Cloudy':c<=48?'Fog':
 const BAD=c=>(c>=45&&c<=67)||(c>=80&&c<=82)||c>=95;
 function wxUrl(a,b){return `https://api.open-meteo.com/v1/forecast?latitude=${a}&longitude=${b}&current=temperature_2m,weather_code&hourly=precipitation_probability,weather_code&forecast_hours=3&timezone=auto`}
 function safeRender(){const f=document.activeElement;if(f&&f.tagName==='INPUT'&&f.type!=='file')return;render()}
-async function loadWeather(lat,lon,here){try{const d=await (await fetch(wxUrl(lat,lon))).json();W.t=Math.round(d.current.temperature_2m)+'°';W.c=COND(d.current.weather_code);W.place=here?'Your Location':'Khatu Shyam Ji';const p=d.hourly.precipitation_probability;W.hours=[['Now',p[0]+'%'],['In 1 hour',p[1]+'%'],['In 2 hours',p[2]+'%']];const cs=d.hourly.weather_code;W.alert=p.some(x=>x>=50)||cs.some(BAD);const w=cs.find(BAD);W.note=W.alert?((w!==undefined?COND(w):'Rain')+' likely within 3 hours. Drive carefully.'):'No rain, fog or thunder in the next 3 hours.';safeRender()}catch(e){W.c='Weather unavailable';W.note='Check your internet and try again.';safeRender()}}
-async function loadKhatu(){try{const d=await (await fetch(wxUrl(27.3645,75.4032))).json();W.kt=Math.round(d.current.temperature_2m)+'°';W.kp=d.hourly.precipitation_probability[0]+'%';safeRender()}catch(e){}}
-function startWeather(){loadKhatu();if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>loadWeather(p.coords.latitude.toFixed(3),p.coords.longitude.toFixed(3),true),()=>loadWeather(27.3645,75.4032,false),{timeout:9000,maximumAge:600000});else loadWeather(27.3645,75.4032,false)}
+async function loadWeather(lat,lon,here){try{const d=await (await fetch(wxUrl(lat,lon))).json();W.t=Math.round(d.current.temperature_2m)+'°';W.c=COND(d.current.weather_code);W.place=here?'Your Location':'Khatu Shyam Ji';const p=d.hourly.precipitation_probability;W.hours=[['Now',p[0]+'%'],['In 1 hour',p[1]+'%'],['In 2 hours',p[2]+'%']];const cs=d.hourly.weather_code;W.alert=p.some(x=>x>=50)||cs.some(BAD);const w=cs.find(BAD);W.note=W.alert?((w!==undefined?COND(w):'Rain')+' likely within 3 hours. Drive carefully.'):'No rain, fog or thunder in the next 3 hours.';saveW();safeRender()}catch(e){W.c='Weather unavailable';W.note='Check your internet and try again.';safeRender()}}
+async function loadKhatu(){try{const d=await (await fetch(wxUrl(27.3645,75.4032))).json();W.kt=Math.round(d.current.temperature_2m)+'°';W.kp=d.hourly.precipitation_probability[0]+'%';saveW();safeRender()}catch(e){}}
+function saveW(){try{localStorage.setItem('drive-weather',JSON.stringify({at:Date.now(),w:W}))}catch(e){}}
+function restoreW(){try{const c=JSON.parse(localStorage.getItem('drive-weather')||'null');if(c&&c.w.t!=='--'&&Date.now()-c.at<600000){Object.assign(W,c.w);return true}}catch(e){}return false}
+function startWeather(){if(restoreW()){safeRender();return}loadKhatu();if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>loadWeather(p.coords.latitude.toFixed(3),p.coords.longitude.toFixed(3),true),()=>loadWeather(27.3645,75.4032,false),{timeout:9000,maximumAge:600000});else loadWeather(27.3645,75.4032,false)}
 function act(code){location.href='shortcuts://x-callback-url/run-shortcut?name='+encodeURIComponent('Drive Dashboard')+'&input=text&text='+encodeURIComponent(code)+'&x-success='+encodeURIComponent(location.href)}
 
 function theme(){
@@ -1114,7 +1116,7 @@ document.addEventListener('click',e=>{
  else if(d.cat){catId=d.cat;view='cat';render();top()}
  else if(b.id==='goBack'){view='home';render();top()}
  else if(d.toast){toast(d.toast)}
- else if(d.do){act(d.do)}
+ else if(d.do){if(d.do==='next'||d.do==='prev'){S.playing=true;save();render()}act(d.do)}
  else if(d.act==='drive'){S.drive=!S.drive;save();act('drive')}
  else if(d.act==='play'){S.playing=!S.playing;save();render();act('play')}
  else if(d.move){const[i,n]=d.move.split(',').map(Number);swap(S.order,i,n);save();render()}
