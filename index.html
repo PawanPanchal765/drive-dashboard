@@ -727,8 +727,7 @@ async function loadKhatu(){try{const d=await (await fetch(wxUrl(27.3645,75.4032)
 function saveW(){try{localStorage.setItem('drive-weather',JSON.stringify({at:Date.now(),w:W}))}catch(e){}}
 function restoreW(){try{const c=JSON.parse(localStorage.getItem('drive-weather')||'null');if(c&&c.w.t!=='--'&&Date.now()-c.at<600000){Object.assign(W,c.w);return true}}catch(e){}return false}
 function startWeather(){if(restoreW()){safeRender();return}loadKhatu();if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>loadWeather(p.coords.latitude.toFixed(3),p.coords.longitude.toFixed(3),true),()=>loadWeather(27.3645,75.4032,false),{timeout:9000,maximumAge:600000});else loadWeather(27.3645,75.4032,false)}
-function openLiked(){location.href='https://music.youtube.com/watch?list=LM'}
-function liked(){S.playing=true;S.playAt=Date.now();save();render();openLiked()}
+function liked(){S.playing=true;S.playAt=Date.now();save();render();act('liked')}
 function act(code){location.href='shortcuts://x-callback-url/run-shortcut?name='+encodeURIComponent('Drive Dashboard')+'&input=text&text='+encodeURIComponent(code)+'&x-success='+encodeURIComponent(location.href)}
 
 function theme(){
@@ -1175,6 +1174,7 @@ function pictureTone(c){const t=document.createElement('canvas');t.width=t.heigh
 let swipe=null;
 document.addEventListener('pointerdown',e=>{if(full&&!sheet&&e.target.closest('.over'))swipe=[e.clientX,e.clientY]});
 document.addEventListener('pointerup',e=>{if(!swipe||!full||S.carTab!=='phone'){swipe=null;return}const land=innerWidth>innerHeight,dx=land?e.clientX-swipe[0]:e.clientY-swipe[1],dy=land?e.clientY-swipe[1]:e.clientX-swipe[0];swipe=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)){S.cur=(S.cur+(dx<0?1:-1)+S.screens.length)%S.screens.length;save();render()}});
+if(location.hash==='#playing'){S.playing=true;S.playAt=Date.now();save();history.replaceState(null,'',location.pathname)}
 if(S.playing&&Date.now()-(S.playAt||0)>7200000){S.playing=false;save()}
 render();startWeather();setInterval(startWeather,900000);
 </script>
